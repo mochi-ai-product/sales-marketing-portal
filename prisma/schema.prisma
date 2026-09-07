@@ -33,6 +33,8 @@ model Lead {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
+  sales Sale[]
+
   @@unique([organizationId, email])
   @@index([organizationId])
 }
@@ -58,6 +60,55 @@ model Product {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
+  saleLineItems SaleLineItem[]
+
   @@index([organizationId])
   @@index([organizationId, active])
+}
+
+// Priced sales-transaction line items (MOCAAAAAAAA-66): a lead/appointment
+// converting into a sale creates one Sale linked to the Lead, with one or
+// more SaleLineItem rows - replacing a free-text sale amount with real,
+// per-product-priced records. `Sale.totalCents` is a stored sum of its line
+// items (recomputed at creation, never edited independently) so the Epic 4
+// funnel dashboard can read revenue straight off `Sale` without re-deriving
+// it from line items on every query.
+model Sale {
+  id             String   @id @default(cuid())
+  organizationId String
+  leadId         String
+  totalCents     Int
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  lead      Lead           @relation(fields: [leadId], references: [id])
+  lineItems SaleLineItem[]
+
+  @@index([organizationId])
+  @@index([leadId])
+}
+
+// Snapshots productNameSnapshot/unitPriceCentsSnapshot from the referenced
+// Product at the moment of sale (per MOCAAAAAAAA-64) - these fields are
+// never recomputed from a live Product row, so later price edits or
+// deactivation on Product never rewrite historical revenue. `productId`
+// stays as a foreign key purely for referential integrity/traceability
+// (Product rows are soft-deactivated, never deleted, so this FK never
+// dangles); no read path may join through it to get current pricing.
+model SaleLineItem {
+  id                     String   @id @default(cuid())
+  organizationId         String
+  saleId                 String
+  productId              String
+  productNameSnapshot    String
+  unitPriceCentsSnapshot Int
+  quantity               Int
+  lineTotalCents         Int
+  createdAt              DateTime @default(now())
+
+  sale    Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([organizationId])
+  @@index([saleId])
 }
