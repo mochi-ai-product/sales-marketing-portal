@@ -1,12 +1,14 @@
 FROM node:20-slim AS deps
 WORKDIR /app
 COPY package.json package-lock.json* ./
+COPY libs ./libs
 RUN npm install
 
 FROM node:20-slim AS build
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+COPY --from=deps /app/libs ./libs
 RUN npx prisma generate
 RUN npm run build
 

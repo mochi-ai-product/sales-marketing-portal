@@ -5,12 +5,13 @@
 //     organizationId comes from the `x-organization-id` header, and the
 //     caller must present a scoped API key (`x-api-key`) that is entitled to
 //     that organization. Never trust the header alone.
-//   - Customer-facing routes (once the shared auth/JWT package lands, see
-//     the Talent Management-owned pilot referenced on MOCAAAAAAAA-25):
-//     organizationId MUST be derived from the verified JWT claim, not from
-//     any client-supplied header - a client-supplied org header on a
-//     customer-facing route is a tenant-isolation bypass. Do not add a
-//     header-based fallback to that path when it ships.
+//   - Customer-facing routes: organizationId MUST be derived from the
+//     verified JWT claim, not from any client-supplied header - a
+//     client-supplied org header on a customer-facing route is a
+//     tenant-isolation bypass. Use `requireAuth()` from `src/lib/auth.ts`
+//     (wraps the shared @ad-tech/auth-verify package, vendored at
+//     libs/auth-verify per MOCAAAAAAAA-33) and read `result.auth.organizationId`.
+//     Do not add a header-based fallback to that path.
 
 export class TenantContextError extends Error {}
 

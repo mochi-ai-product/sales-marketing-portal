@@ -65,14 +65,34 @@ Render builds `Dockerfile` directly.
   `infra-decision` document on MOCAAAAAAAA-25 — this section is the summary,
   that document is the source of truth.
 
-## Auth/SSO (in progress, not built here)
+## Auth/SSO (package integrated — MOCAAAAAAAA-33; no live login yet)
 
 Decision: one shared identity layer for all four portals, not four
-independent logins. Talent Management TE is piloting a shared auth/JWT
-verification package (separate child issue off MOCAAAAAAAA-25). This portal
-does **not** roll its own login — wait for that package and integrate.
-`src/lib/tenant.ts` already documents where the JWT-derived org id will slot
-in once it ships.
+independent logins. Talent Management TE piloted a shared auth/JWT
+verification package (`@ad-tech/auth-verify` v0.1.0, WorkOS/AuthKit-backed,
+published on MOCAAAAAAAA-27) that this portal does not roll its own
+alternative to.
+
+- **Vendored** at `libs/auth-verify/` (no shared package registry exists
+  yet — see the package's own README "Install" section). Referenced from
+  this repo's `package.json` as `"@ad-tech/auth-verify": "file:./libs/auth-verify"`;
+  a root `postinstall` script builds it automatically on `npm install`.
+- The upstream package ships **Express** middleware
+  (`requireAuth`/`requireRole`); this portal is Next.js App Router with no
+  Express layer, so `src/lib/auth.ts` re-implements the same behavior as a
+  plain async helper for Route Handlers, built on the package's
+  framework-agnostic `createVerifier()`/`verify()`. See its tests
+  (`src/lib/auth.test.ts`) for usage against the HS256 dev-shared-secret
+  path.
+- Env vars: `AUTH_ISSUER`, `AUTH_AUDIENCE`, `AUTH_JWKS_URL` (prod),
+  `AUTH_DEV_SHARED_SECRET` (dev/CI only) — see `.env.example`.
+- **Not done yet:** no customer-facing route actually calls
+  `requireAuth()` — this portal has no login/product surface to protect
+  until the product brief (MOCAAAAAAAA-4) defines one. No production WorkOS
+  account exists yet either (tracked on MOCAAAAAAAA-27, needs
+  account/billing authority). When a customer-facing route ships, it MUST
+  derive `organizationId` from `requireAuth()`'s result, never from
+  `x-organization-id` — see `src/lib/tenant.ts`.
 
 ## Running locally
 

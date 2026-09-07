@@ -44,3 +44,12 @@ Blueprint (Dockerfile-based, free tier for now — see
 
 Single-DB, `organizationId`-scoped rows. See `src/lib/tenant.ts` and
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#multi-tenancy-decided--mocaaaaaaaa-2526).
+
+## Auth
+
+Shared JWT verification package (`@ad-tech/auth-verify` v0.1.0, WorkOS-backed)
+is vendored at `libs/auth-verify/` and wrapped for this portal's Next.js App
+Router in `src/lib/auth.ts` — see
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#authsso-package-integrated--mocaaaaaaaa-33-no-live-login-yet).
+No customer-facing route uses it yet; wire it in once the product brief
+defines a login-gated surface.
