@@ -36,3 +36,28 @@ model Lead {
   @@unique([organizationId, email])
   @@index([organizationId])
 }
+
+// Product/service catalog (MOCAAAAAAAA-64). Owner/staff define priced
+// treatments/packages here so sales are logged as real line items instead of
+// free-text amounts (prerequisite for the Epic 3 extension, MOCAAAAAAAA-66).
+//
+// `active = false` is a soft-deactivate, not a delete: it hides the product
+// from new-sale selection but the row (and its id) must stay intact forever,
+// because downstream sale line items are expected to snapshot `name`/
+// `priceCents` at time of sale rather than live-reference this row - a later
+// edit or deactivation here must never rewrite historical revenue.
+//
+// Money is stored as integer cents (`priceCents`), not a float/Decimal, to
+// avoid rounding drift - display-format by dividing by 100 in the UI layer.
+model Product {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  priceCents     Int
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([organizationId, active])
+}

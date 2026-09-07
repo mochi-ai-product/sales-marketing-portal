@@ -17,22 +17,38 @@ path to a working core workflow (priority #1 in the role spec), without
 foreclosing a later split into separate API/frontend services if this portal's
 scale demands it.
 
-## Data model (placeholder)
+## Data model
 
-`prisma/schema.prisma` has one model (`Lead`) purely to prove the DB → API →
-UI path end to end. **This is not the real domain model.** The actual model
-(campaigns, funnel/pipeline stages, per-vertical fields for automotive/
-beauty/retail/F&B/manufacturing) is the Sales & Marketing Product Manager's
-call, driven by the product brief (see MOCAAAAAAAA-4). Conventions to keep
-once the real model lands, so this stays easy for other portals/AI tooling to
-integrate with:
+`Lead` is still a placeholder — proves the DB → API → UI path end to end,
+not the real lead/funnel model (that's still the Product Manager's call per
+the brief, MOCAAAAAAAA-4).
+
+`Product` (MOCAAAAAAAA-64) is the first real domain model: owner/staff define
+priced treatments/packages, scoped by `organizationId`, so sales (Epic 3
+extension, MOCAAAAAAAA-66) log real line items instead of a free-text amount.
+CRUD lives at `src/app/api/products/` — first customer-facing routes to
+actually call `requireAuth()`/`requireRole()` (see Auth/SSO below).
+`Product.active` is an intentional exception to the "no soft-delete" rule
+below: deactivating must never delete the row or rewrite historical sales,
+since line items are expected to snapshot `name`/`priceCents` at sale time
+rather than live-reference this table (see the model's schema comment).
+
+`prisma/migrations/` now exists (`20260907074205_init_lead_and_product` —
+first real migration, covering both `Lead` and `Product` since neither had
+been migrated before this).
+
+Conventions to keep as the real model lands, so this stays easy for other
+portals/AI tooling to integrate with:
 
 - `cuid()` primary keys, camelCase fields.
 - Explicit `createdAt` / `updatedAt` on every model.
 - `organizationId` + `@@index([organizationId])` on every model (see
   Multi-tenancy below) — non-negotiable from here on, not just for `Lead`.
-- No soft-delete flags unless a real requirement needs them — keep it simple
-  until proven otherwise.
+- No soft-delete flags unless a real requirement needs them (`Product.active`
+  is the first such requirement — protecting historical revenue data from
+  retroactive drift) — keep it simple until proven otherwise.
+- Money is integer cents (e.g. `priceCents`), never float/Decimal, to avoid
+  rounding drift.
 
 ## Multi-tenancy (decided — MOCAAAAAAAA-25/26)
 
@@ -86,13 +102,15 @@ alternative to.
   path.
 - Env vars: `AUTH_ISSUER`, `AUTH_AUDIENCE`, `AUTH_JWKS_URL` (prod),
   `AUTH_DEV_SHARED_SECRET` (dev/CI only) — see `.env.example`.
-- **Not done yet:** no customer-facing route actually calls
-  `requireAuth()` — this portal has no login/product surface to protect
-  until the product brief (MOCAAAAAAAA-4) defines one. No production WorkOS
-  account exists yet either (tracked on MOCAAAAAAAA-27, needs
-  account/billing authority). When a customer-facing route ships, it MUST
-  derive `organizationId` from `requireAuth()`'s result, never from
-  `x-organization-id` — see `src/lib/tenant.ts`.
+- **First customer-facing routes now live:** `src/app/api/products/` (Product
+  catalog, MOCAAAAAAAA-64) calls `requireAuth()` and derives
+  `organizationId` from its result, never from `x-organization-id` — see
+  `src/lib/tenant.ts`. Role check uses `requireRole(auth, 'owner', 'staff')`;
+  per CONTRACT.md §2 there's still no cross-portal role taxonomy, so
+  `owner`/`staff` are this portal's own role strings, not a shared standard.
+  No production WorkOS account exists yet either (tracked on
+  MOCAAAAAAAA-27, needs account/billing authority), so this only works
+  against the HS256 dev-shared-secret path until that lands.
 
 ## Running locally
 
