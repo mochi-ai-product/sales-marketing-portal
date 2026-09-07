@@ -1,0 +1,27 @@
+// Sales & Marketing Portal - data model
+// Status: placeholder only. The real domain model (campaigns, funnel stages,
+// per-vertical fields) will be shaped by the product brief from the
+// Sales & Marketing Product Manager (see MOCAAAAAAAA-4). This starter model
+// exists to prove the DB -> API -> UI pipeline end to end and to give other
+// portals/AI Enablement a concrete convention to integrate against:
+//   - cuid() ids, camelCase fields, explicit createdAt/updatedAt on every model.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Lead {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  phone     String?
+  source    String? // e.g. "website", "referral", "campaign:<id>"
+  status    String   @default("new") // new | contacted | qualified | won | lost
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
