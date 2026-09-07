@@ -5,6 +5,13 @@
 // exists to prove the DB -> API -> UI pipeline end to end and to give other
 // portals/AI Enablement a concrete convention to integrate against:
 //   - cuid() ids, camelCase fields, explicit createdAt/updatedAt on every model.
+//
+// Multi-tenancy: single-DB, organizationId-scoped rows (company-wide
+// convention decided MOCAAAAAAAA-25, same pattern as Talent Management's
+// CONTRACT.md). organizationId is the tenant id owned by Talent Management
+// (source of truth for Organization) - stored here as a plain scoped column,
+// not a cross-service foreign key. Every model added to this schema going
+// forward must carry organizationId + an index on it.
 
 generator client {
   provider = "prisma-client-js"
@@ -16,12 +23,16 @@ datasource db {
 }
 
 model Lead {
-  id        String   @id @default(cuid())
-  name      String
-  email     String   @unique
-  phone     String?
-  source    String? // e.g. "website", "referral", "campaign:<id>"
-  status    String   @default("new") // new | contacted | qualified | won | lost
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  email          String
+  phone          String?
+  source         String? // e.g. "website", "referral", "campaign:<id>"
+  status         String   @default("new") // new | contacted | qualified | won | lost
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([organizationId, email])
+  @@index([organizationId])
 }

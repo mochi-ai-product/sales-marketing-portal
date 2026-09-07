@@ -29,28 +29,50 @@ integrate with:
 
 - `cuid()` primary keys, camelCase fields.
 - Explicit `createdAt` / `updatedAt` on every model.
+- `organizationId` + `@@index([organizationId])` on every model (see
+  Multi-tenancy below) — non-negotiable from here on, not just for `Lead`.
 - No soft-delete flags unless a real requirement needs them — keep it simple
   until proven otherwise.
 
-## Open cross-portal questions (not decided unilaterally here)
+## Multi-tenancy (decided — MOCAAAAAAAA-25/26)
 
-These affect all four portals and shouldn't be settled by one technical
-engineer alone — raising with the other three technical engineers and the
-Project Manager (per role boundaries):
+Company-wide standard: **single-DB, `organizationId`-scoped rows**, same
+pattern as Talent Management's `CONTRACT.md` (MOCAAAAAAAA-7) and KPI. No
+schema-per-tenant, no per-tenant database.
 
-1. **Shared auth** — no auth is implemented yet. If customers are expected to
-   use one login across portals, auth (provider, session strategy, tenant
-   model) needs to be a cross-portal decision, not reinvented four times.
-2. **Hosting/deploy target** — this repo is container-ready (Dockerfile +
-   compose) but no target platform (e.g. shared cloud account, orchestrator)
-   is chosen. Company-wide infra/vendor choice is out of scope for one
-   engineer to decide alone.
-3. **Multi-tenancy convention** — if one A&D deployment serves many SME
-   customers, tenant isolation needs to be a shared convention across portals
-   before real data starts flowing.
+- `organizationId` is a plain scoped column on every row, not a cross-service
+  foreign key — Talent Management owns `Organization` as the source of truth.
+- **Service-to-service calls** (other portals calling this one, or this
+  portal calling others): `x-organization-id` header + a scoped `x-api-key`.
+  See `src/lib/tenant.ts` for the resolver. No cross-portal integration has
+  shipped yet, so scoped-key validation against a real key store is stubbed
+  in — wire it up when the first consumer lands.
+- **Customer-facing routes** (once auth ships, see below): `organizationId`
+  MUST be derived from the verified JWT claim, never from a client-supplied
+  header. A client-supplied org header on a customer-facing route is a
+  tenant-isolation bypass.
 
-Until those are resolved, this portal runs as a standalone service with a
-local Postgres, which is enough to build and demo the core workflow.
+## Hosting (decided — MOCAAAAAAAA-25/26)
+
+**Render**, one shared A&D Technologies team account, one Web Service + one
+managed Postgres per portal. `render.yaml` in this repo is the Blueprint —
+Render builds `Dockerfile` directly.
+
+- Started on Render's **free** plan per MOCAAAAAAAA-26, ahead of the board
+  hosting-spend approval (still pending, tracked on MOCAAAAAAAA-25). Bump the
+  web service and Postgres to the `starter` plan once that approval lands.
+- Rationale, trade-offs, and the revisit trigger are recorded in full on the
+  `infra-decision` document on MOCAAAAAAAA-25 — this section is the summary,
+  that document is the source of truth.
+
+## Auth/SSO (in progress, not built here)
+
+Decision: one shared identity layer for all four portals, not four
+independent logins. Talent Management TE is piloting a shared auth/JWT
+verification package (separate child issue off MOCAAAAAAAA-25). This portal
+does **not** roll its own login — wait for that package and integrate.
+`src/lib/tenant.ts` already documents where the JWT-derived org id will slot
+in once it ships.
 
 ## Running locally
 
@@ -62,3 +84,12 @@ npm run dev
 ```
 
 Or via Docker: `docker compose up --build`.
+
+## Deploying
+
+Render Blueprint (`render.yaml`) is checked in. To deploy: connect this repo
+to the shared A&D Technologies Render team account (dashboard → New →
+Blueprint, or `render blueprint launch` via the Render CLI once logged in).
+Render builds `Dockerfile` and provisions the free-tier Postgres instance
+declared in the blueprint; no manual env var setup needed beyond what's in
+`render.yaml`.

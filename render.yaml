@@ -1,0 +1,28 @@
+# Render Blueprint for the Sales & Marketing portal.
+# Deploy: connect this repo in the Render dashboard (or `render blueprint
+# launch` via the Render CLI) under the shared A&D Technologies team account
+# (per the cross-portal hosting decision, MOCAAAAAAAA-25).
+#
+# Starts on Render's free plan per MOCAAAAAAAA-26 (do not wait for the board
+# hosting-spend approval). Bump `plan: starter` (web) and the Postgres plan
+# once that approval lands - see docs/ARCHITECTURE.md.
+
+databases:
+  - name: sales-marketing-db
+    plan: free
+    postgresMajorVersion: "16"
+
+services:
+  - type: web
+    name: sales-marketing-portal
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: sales-marketing-db
+          property: connectionString
+      - key: NODE_ENV
+        value: production
